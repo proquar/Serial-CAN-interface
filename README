@@ -1,0 +1,43 @@
+
+ Serial Port to CAN bus interface
+-------------------------------------------------------------------------------
+
+This device provides 1 CAN port to any computer with a serial port. The serial
+port speed is set to 230.4kBit/s, 8n1. The CAN bus sends and receives at
+125kBit/s.
+
+CAN messages to and from the controller are formatted in the following format:
+
+* a preamble of 4 bytes: 0xff, 0xff, 0x00, 0x00
+* the message id, 4 bytes, MSB first (if you are sending messages with 11 bit
+  ids, just set the leading bits to 0, for 29 bit ids set the leading 3 bits
+  to 0)
+* 1 byte for extended and rtr flags, where:
+  * bit 0 is set for extended
+  * bit 1 is set for rtr
+  * e.g. transmit 0x01 to set the extended flag, but not the rtr flag
+* 1 byte for the length of the message (0-8)
+* 8 bytes of message content, fill with 0x00 for messages shorter then 8
+
+Example: an extended message with the id 0x01234567, the length 6 and the word
+'foobar' as payload:
+    preamble:   0xff 0xff 0x00 0x00
+    id:         0x01 0x23 0x45 0x67
+    extended:   0x01
+    length:     0x06
+    content:    0x66 0x6f 0x6f 0x62 0x61 0x72 0x00 0x00
+
+
+The device may respond with a pseudo-message with an id > 2^29 in case of the
+following errors:
+* 0xff 0xff 0xff 0x62('b')  send-buffer is full
+  * this could be a bus error (no device acknowledged the messages you sent)
+  * otherwise just wait a moment and try again
+* 0xff 0xff 0xff 0x6d('m')  malformed message
+  * the message you were trying to send may have contained an invalid id
+* 0xff 0xff 0xff 0x65('e')  other error
+  * couldn't send the message
+
+In case of an error the message length is always 4 and contains the id of the
+message that couldn't be sent.
+
